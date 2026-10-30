@@ -1,0 +1,116 @@
+# ESP Screens - LilyGO T-Panel S3: 4-inch 480x480 IPS (ST7701S over RGB, initialised over a bit-banged SPI on the
+# XL9535 IO expander), CST3240 capacitive touch, an ESP32-S3 with 16 MB flash and 8 MB of quad PSRAM, and an ESP32-H2
+# co-processor on GPIO33/34/47/48 that this board file leaves alone (an owner's own YAML may use it).
+#
+# A board file is the board's hardware, the facts the shared tree takes from it (its glass and its grid), and the
+# features it has; docs/PROFILES.md says how the files of a screen fit together, docs/TPANEL.md what this board needs.
+packages:
+  # The chip, its PSRAM and the ESP-IDF settings every ESP32-S3 RGB panel shares (and through it how every board's
+  # firmware is built).
+  hardware: !include ../hardware/esp32s3-rgb.yaml
+  # Every size of the standard look, scaled to DISPLAY_DPI below. This glass is where that look was drawn.
+  look: !include ../looks/standard.yaml
+  touch: !include ../features/capacitive-touch.yaml
+  backlight: !include ../features/backlight.yaml
+  camera: !include ../features/camera.yaml
+  self_test: !include ../features/self-test.yaml
+  snapshot: !include ../features/snapshot.yaml
+
+substitutions:
+  # The key of this board file; the firmware reports it so ESP Screens knows what board a screen is.
+  BOARD_ID: "tpanel"
+  DEVICE_NAME: "tpanel-new"
+  DEVICE_FRIENDLY_NAME: "My T-Panel"
+
+  # The glass: the panel's own pixels and its density, 679 diagonal pixels over 4.0 inches.
+  PANEL_W: "480"
+  PANEL_H: "480"
+  DISPLAY_DPI: "169.706"
+  # The tile grid: columns and rows of cells lying down, and standing up.
+  GRID_COLS: "2"
+  GRID_ROWS: "3"
+  LVGL_BUFFER_SIZE: "25%"                       # LVGL's draw buffer as a share of the screen
+
+  # More tiles and pages than the 64 and eight of a board without PSRAM (firmware 0.34.0+): the tile list, the cards and the
+  # extras live in PSRAM here, and the memory budget (tile_memory.h) says how many of them a layout really takes.
+  SCREEN_MAX_TILES: "128"
+  SCREEN_MAX_PAGES: "24"
+  SCREEN_MAX_BAR_ITEMS: "12"                   # a wider top bar where the glass has the width for it
+  # Hardware a screen's own YAML may change (docs/EASY_SETUP.md, "Hardware-specific YAML overrides")
+  BACKLIGHT_FREQUENCY: "1220Hz"                 # the backlight's PWM; see the output block
+
+# ============================================================
+# No need to edit below this line.
+# ============================================================
+
+esp32:
+  flash_size: 16MB
+
+# Quad, not the family's octal: octal PSRAM would claim GPIO33-37, which this board wires to the ESP32-H2 (33/34) and
+# the SD card (35-37).
+psram:
+  mode: quad
+  speed: 80MHz
+
+logger:
+  tx_buffer_size: 2048
+  hardware_uart: USB_SERIAL_JTAG
+
+text_sensor:
+  - platform: template
+    name: "T-Panel screen type"
+    entity_category: diagnostic
+    update_interval: never
+    lambda: 'return {"tpanel"};'
+
+# The touch panel and the XL9535 IO expander share this bus.
+i2c:
+  id: touch_bus
+  sda: GPIO17
+  scl: GPIO18
+  frequency: 400kHz
+  scan: true
+
+# 4: touch reset, 5: LCD reset, 15/16/17: LCD SPI clock, data and chip select.
+xl9535:
+  - id: xl9535_hub
+    address: 0x20
+    i2c_id: touch_bus
+
+# Bit-banged through the expander; it only carries the ST7701S init sequence.
+spi:
+  id: lcd
+  interface: software
+  clk_pin:
+    xl9535: xl9535_hub
+    number: 15
+  mosi_pin:
+    xl9535: xl9535_hub
+    number: 16
+
+output:
+  - platform: ledc
+    pin: GPIO14
+    id: gpio_backlight_pwm
+    frequency: ${BACKLIGHT_FREQUENCY}
+
+# A CST3240, which answers at 0x5A with the CST226 register protocol and reports pixels.
+touchscreen:
+  - platform: cst226
+    id: ts_touch
+    i2c_id: touch_bus
+    address: 0x5A
+    display: my_display
+    interrupt_pin: GPIO21
+    reset_pin:
+      xl9535: xl9535_hub
+      number: 4
+
+# ESPHome's T-PANEL-S3 preset: the RGB pins, timings and init sequence, with chip select and reset on the expander.
+display:
+  - platform: mipi_rgb
+    id: my_display
+    model: T-PANEL-S3
+    spi_id: lcd
+    update_interval: never
+    auto_clear_enabled: false
