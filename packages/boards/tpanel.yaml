@@ -29,7 +29,9 @@ substitutions:
   # The tile grid: columns and rows of cells lying down, and standing up.
   GRID_COLS: "2"
   GRID_ROWS: "3"
-  LVGL_BUFFER_SIZE: "25%"                       # LVGL's draw buffer as a share of the screen
+  # An eighth of the screen (58 KB), not the quarter (115 KB) the Guition takes: a quarter lands inside the chip and
+  # left 3 KB free at the lowest on the glass, with the H2 link and Wi-Fi beside it.
+  LVGL_BUFFER_SIZE: "12%"
 
   # More tiles and pages than the 64 and eight of a board without PSRAM (firmware 0.34.0+): the tile list, the cards and the
   # extras live in PSRAM here, and the memory budget (tile_memory.h) says how many of them a layout really takes.
