@@ -103,7 +103,9 @@ touchscreen:
     i2c_id: touch_bus
     address: 0x5A
     display: my_display
-    interrupt_pin: GPIO21
+    # Polled, not on GPIO21's interrupt: the chip does not always signal the lift, and ESPHome then holds the finger
+    # down until the next touch (taps let go 0.5 to 15 s late, buttons acting only on a later press).
+    update_interval: 20ms
     reset_pin:
       xl9535: xl9535_hub
       number: 4
