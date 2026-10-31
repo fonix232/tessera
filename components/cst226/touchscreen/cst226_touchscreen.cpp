@@ -27,12 +27,22 @@ void CST226Touchscreen::update_touches() {
     return;
   }
   this->status_clear_warning();
-  {  // TEMPORARY: the raw header whenever it changes
+  {  // TEMPORARY: the raw header whenever it changes, with the reads between and the longest gap between two reads
     static uint8_t last[12];
+    static uint32_t last_read, changed_at, same, max_gap;
+    const uint32_t now = millis();
+    if (last_read != 0 && now - last_read > max_gap)
+      max_gap = now - last_read;
+    last_read = now;
     if (memcmp(last, data, sizeof last) != 0) {
       memcpy(last, data, sizeof last);
-      ESP_LOGW(TAG, "raw %02X %02X %02X %02X %02X %02X %02X | %02X %02X %02X %02X %02X", data[0], data[1], data[2],
-               data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11]);
+      ESP_LOGW(TAG, "raw %02X %02X %02X %02X %02X %02X %02X | %02X %02X %02X %02X %02X  after %u ms, %u same reads, gap max %u ms",
+               data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10],
+               data[11], (unsigned) (now - changed_at), (unsigned) same, (unsigned) max_gap);
+      changed_at = now;
+      same = max_gap = 0;
+    } else {
+      same++;
     }
   }
   if (data[0] == 0x83 && data[1] == 0x17 && data[5] == 0x80) {
