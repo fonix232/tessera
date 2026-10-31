@@ -1688,11 +1688,12 @@ text_sensor:
     entity_category: diagnostic
     lambda: 'return {screen_text::LANGUAGE};'
     update_interval: 60s
-  # ESP Screen Manager matches the screen to its YAML profile and OTA address.
+  # ESP Screen Manager matches the screen to its YAML profile and OTA address, and calls its actions by this name: the
+  # running one, so a name_add_mac_suffix build reports the suffix Home Assistant registered the actions under.
   - platform: template
     name: "Device name"
     entity_category: diagnostic
-    lambda: 'return {"${DEVICE_NAME}"};'
+    lambda: 'return {App.get_name()};'
     update_interval: 60s
   - platform: wifi_info
     ip_address:
