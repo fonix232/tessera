@@ -37,7 +37,6 @@ class CST226Touchscreen final : public touchscreen::Touchscreen, public i2c::I2C
   bool setup_complete_{};
   std::vector<CST226ButtonListener *> button_listeners_;
   bool button_touched_{};
-  uint8_t invalid_reads_{};
 };
 
 }  // namespace esphome::cst226

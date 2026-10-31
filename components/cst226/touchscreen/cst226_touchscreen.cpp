@@ -1,4 +1,4 @@
-// ESPHome 2026.10.1's cst226 touchscreen, with the lift the T-Panel's CST3240 gives (update_touches).
+// ESPHome 2026.10.1's cst226 touchscreen, with a point counted only while its finger is down (update_touches).
 #include "cst226_touchscreen.h"
 
 namespace esphome::cst226 {
@@ -27,38 +27,15 @@ void CST226Touchscreen::update_touches() {
     return;
   }
   this->status_clear_warning();
-  {  // TEMPORARY: the raw header whenever it changes, with the reads between and the longest gap between two reads
-    static uint8_t last[12];
-    static uint32_t last_read, changed_at, same, max_gap;
-    const uint32_t now = millis();
-    if (last_read != 0 && now - last_read > max_gap)
-      max_gap = now - last_read;
-    last_read = now;
-    if (memcmp(last, data, sizeof last) != 0) {
-      memcpy(last, data, sizeof last);
-      ESP_LOGW(TAG, "raw %02X %02X %02X %02X %02X %02X %02X | %02X %02X %02X %02X %02X  after %u ms, %u same reads, gap max %u ms",
-               data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10],
-               data[11], (unsigned) (now - changed_at), (unsigned) same, (unsigned) max_gap);
-      changed_at = now;
-      same = max_gap = 0;
-    } else {
-      same++;
-    }
-  }
   if (data[0] == 0x83 && data[1] == 0x17 && data[5] == 0x80) {
     this->update_button_state_(true);
     return;
   }
   this->update_button_state_(false);
   if (data[6] != 0xAB || data[0] == 0xAB || data[5] == 0x80) {
-    // A reading without the 0xAB marker is no touch to LilyGO's driver; the T-Panel's CST3240 gives only those after
-    // the lift. Upstream keeps the finger down through them, so a lift went unseen until the next touch, which then
-    // dragged whatever the first one held. Three in a row (60 ms polled) count as the lift.
-    if (++this->invalid_reads_ < 3)
-      this->skip_update_ = true;
+    this->skip_update_ = true;
     return;
   }
-  this->invalid_reads_ = 0;
   uint8_t num_of_touches = data[5] & 0x7F;
   if (num_of_touches == 0 || num_of_touches > 5) {
     this->write_byte(0, 0xAB);
@@ -71,8 +48,12 @@ void CST226Touchscreen::update_touches() {
     int16_t x = (data[index + 1] << 4) | ((data[index + 3] >> 4) & 0x0F);
     int16_t y = (data[index + 2] << 4) | (data[index + 3] & 0x0F);
     int16_t z = data[index + 4];
-    this->add_raw_touch_position_(id, x, y, z);
-    ESP_LOGV(TAG, "Read touch %d: %d/%d", id, x, y);
+    // The low nibble is the point's state, 6 while the finger is down. The T-Panel's CST3240 keeps a lifted point in
+    // the count, at its last place with state 0, for up to a second: counted, every tap in that time joined one drag.
+    if ((data[index] & 0x0F) == 0x06) {
+      this->add_raw_touch_position_(id, x, y, z);
+      ESP_LOGV(TAG, "Read touch %d: %d/%d", id, x, y);
+    }
     index += 5;
     if (i == 0)
       index += 2;
