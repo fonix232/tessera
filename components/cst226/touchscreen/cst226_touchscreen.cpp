@@ -27,6 +27,14 @@ void CST226Touchscreen::update_touches() {
     return;
   }
   this->status_clear_warning();
+  {  // TEMPORARY: the raw header whenever it changes
+    static uint8_t last[12];
+    if (memcmp(last, data, sizeof last) != 0) {
+      memcpy(last, data, sizeof last);
+      ESP_LOGW(TAG, "raw %02X %02X %02X %02X %02X %02X %02X | %02X %02X %02X %02X %02X", data[0], data[1], data[2],
+               data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11]);
+    }
+  }
   if (data[0] == 0x83 && data[1] == 0x17 && data[5] == 0x80) {
     this->update_button_state_(true);
     return;
