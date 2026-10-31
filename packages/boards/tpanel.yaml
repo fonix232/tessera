@@ -107,6 +107,12 @@ touchscreen:
     reset_pin:
       xl9535: xl9535_hub
       number: 4
+    # Stated, because the range the driver reads from the chip (0xD1F8) pins every touch to 479,479.
+    calibration:
+      x_min: 0
+      x_max: 479
+      y_min: 0
+      y_max: 479
 
 # ESPHome's T-PANEL-S3 preset: the RGB pins, timings and init sequence, with chip select and reset on the expander.
 display:
